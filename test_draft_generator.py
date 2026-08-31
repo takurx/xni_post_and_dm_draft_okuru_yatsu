@@ -195,37 +195,28 @@ class DmButtonHtmlTest(unittest.TestCase):
         self.assertIn("execCommand('copy')", out)
         self.assertIn("✓ コピーしました", out)
 
-    def test_ライトテーマの配色(self):
+    def test_親ボタンのスタイルをコピーするJS(self):
         out = build_dm_button_html("DM", "https://x.com/messages/compose?recipient_id=1", "t")
-        # Streamlit標準ライトテーマの文字色 #31333F に合わせる
-        self.assertIn("color: #31333F", out)
-        self.assertIn("border: 1px solid rgba(49, 51, 63, 0.2)", out)
-        # ネイティブのsecondaryボタン同様、デフォルト背景は透明
-        self.assertIn("background-color: transparent;", out)
+        # 親ページのネイティブPostボタン(st.link_button)からスタイルをコピーする
+        self.assertIn("stBaseLinkButton", out)
+        self.assertIn("stLinkButton", out)
+        self.assertIn("window.parent.getComputedStyle", out)
+        self.assertIn("applyNativeStyle", out)
+        # ホバー用に背景色をCSS変数へ保持
+        self.assertIn("--dm-bg", out)
+        # フォールバック(ライト/ダーク判定)
+        self.assertIn("applyFallbackTheme", out)
+        self.assertIn("#FAFAFA", out)
+        self.assertIn("#31333F", out)
 
-    def test_ダークテーマの配色(self):
+    def test_JS文字列の危険文字をエスケープ(self):
         out = build_dm_button_html(
-            "DM", "https://x.com/messages/compose?recipient_id=1", "t", base="dark"
+            "DM", "https://x.com/messages/compose?recipient_id=1", "改行\u2028と段落\u2029"
         )
-        self.assertIn("color: #FAFAFA", out)
-        self.assertIn("rgba(250, 250, 250, 0.2)", out)
-
-    def test_カスタム文字色(self):
-        out = build_dm_button_html(
-            "DM",
-            "https://x.com/messages/compose?recipient_id=1",
-            "t",
-            base="dark",
-            text_color="#123456",
-        )
-        self.assertIn("color: #123456", out)
-        self.assertIn("rgba(18, 52, 86, 0.2)", out)
-
-    def test_不明なbaseはライト扱い(self):
-        out = build_dm_button_html(
-            "DM", "https://x.com/messages/compose?recipient_id=1", "t", base="unknown"
-        )
-        self.assertIn("color: #31333F", out)
+        self.assertIn("\\u2028", out)
+        self.assertIn("\\u2029", out)
+        # 実文字の U+2028 が生で埋め込まれていないこと
+        self.assertNotIn("\u2028", out)
 
     def test_scriptタグを壊さない(self):
         out = build_dm_button_html(

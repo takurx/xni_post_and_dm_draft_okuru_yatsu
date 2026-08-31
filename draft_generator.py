@@ -86,55 +86,25 @@ def build_dm_url(text: str, recipient_id: str) -> str:
 
 
 def _js_string(value: str) -> str:
-    """HTML内の<script>に埋め込む安全なJS文字列リテラルを作る。"""
-    return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
+    """HTML内の<script>に埋め込む安全なJS文字列リテラルを作る。
 
-
-# Streamlit標準テーマのボタン文字色(デフォルト。カスタムテーマ設定が無い場合のフォールバック)
-DEFAULT_THEME_TEXT_COLORS = {"light": "#31333F", "dark": "#FAFAFA"}
-
-
-def _hex_to_rgba(color: str, alpha: float) -> str:
-    """``#RRGGBB`` 形式の色を ``rgba(r, g, b, alpha)`` に変換する。
-
-    解析できない場合は元の文字列をそのまま返す。
+    ``</script>`` によるscriptタグの終了を防ぎ、JS文字列として不正な
+    ``\\u2028``(行区切り) / ``\\u2029``(段落区切り)をエスケープする。
     """
-    c = str(color).strip().lstrip("#")
-    if len(c) == 3:
-        c = "".join(ch * 2 for ch in c)
-    if len(c) != 6:
-        return str(color)
-    try:
-        r, g, b = (int(c[i : i + 2], 16) for i in (0, 2, 4))
-    except ValueError:
-        return str(color)
-    return f"rgba({r}, {g}, {b}, {alpha})"
+    s = json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
+    return s.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def build_dm_button_html(
-    label: str,
-    url: str,
-    copy_text: str,
-    *,
-    base: str = "light",
-    text_color: str | None = None,
-) -> str:
+def build_dm_button_html(label: str, url: str, copy_text: str) -> str:
     """DM送信ボタンのHTMLを生成する。
 
     クリックすると ``copy_text`` をクリップボードにコピーし、
     同時に ``url``(DM作成画面)を新しいタブで開く。
 
-    ボタンの配色は Streamlit のネイティブボタン(secondary)に合わせて
-    テーマの文字色から算出する。
+    配色は同じページ内にあるネイティブのPost送信ボタン(``st.link_button``)の
+    計算済みスタイルをそのままコピーするため、Streamlitのテーマ
+    (ライト/ダーク/カスタム)に完全に追従する。
     """
-    if base not in DEFAULT_THEME_TEXT_COLORS:
-        base = "light"
-    text_color = (text_color or "").strip() or DEFAULT_THEME_TEXT_COLORS[base]
-    border_color = _hex_to_rgba(text_color, 0.2)
-    hover_bg = _hex_to_rgba(text_color, 0.06)
-    hover_border = _hex_to_rgba(text_color, 0.4)
-    active_bg = _hex_to_rgba(text_color, 0.12)
-
     label_escaped = html.escape(label)
     href = html.escape(url, quote=True)
     text_literal = _js_string(copy_text)
@@ -147,10 +117,10 @@ body {{ margin: 0; }}
     justify-content: center;
     height: 2.5rem;
     padding: 0 0.9rem;
-    border: 1px solid {border_color};
+    border: 1px solid rgba(49, 51, 63, 0.2);
     border-radius: 0.5rem;
     background-color: transparent;
-    color: {text_color};
+    color: #31333F;
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
@@ -158,11 +128,10 @@ body {{ margin: 0; }}
     box-sizing: border-box;
 }}
 .st-dm-btn:hover {{
-    background-color: {hover_bg};
-    border-color: {hover_border};
+    background-color: color-mix(in srgb, black 15%, var(--dm-bg, transparent));
 }}
 .st-dm-btn:active {{
-    background-color: {active_bg};
+    background-color: color-mix(in srgb, black 25%, var(--dm-bg, transparent));
 }}
 </style>
 <a class="st-dm-btn" href="{href}" target="_blank" rel="noopener noreferrer" id="st-dm-link">{label_escaped}</a>
@@ -171,6 +140,63 @@ body {{ margin: 0; }}
     var link = document.getElementById('st-dm-link');
     var text = {text_literal};
     var original = link ? link.textContent : '';
+
+    // 親ページのPost送信ボタン(ネイティブ st.link_button)の計算済みスタイルをコピーする
+    function applyNativeStyle() {{
+        if (!link) return false;
+        try {{
+            var doc = window.parent.document;
+            var post = doc.querySelector('a[data-testid^="stBaseLinkButton"]')
+                    || doc.querySelector('[data-testid="stLinkButton"] a');
+            if (!post) return false;
+            var cs = window.parent.getComputedStyle(post);
+            var props = [
+                'color', 'backgroundColor', 'borderColor', 'borderWidth', 'borderStyle',
+                'borderRadius', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
+                'height', 'padding', 'boxShadow'
+            ];
+            for (var i = 0; i < props.length; i++) {{
+                var v = cs.getPropertyValue(props[i]);
+                if (v) link.style[props[i]] = v;
+            }}
+            link.style.setProperty('--dm-bg', cs.getPropertyValue('backgroundColor') || 'transparent');
+            return true;
+        }} catch (e) {{
+            return false;
+        }}
+    }}
+
+    // フォールバック: 親ページの背景色の明るさからライト/ダークを判定して配色する
+    function applyFallbackTheme() {{
+        if (!link) return;
+        var dark = false;
+        try {{
+            var doc = window.parent.document;
+            var cands = [doc.documentElement, doc.body, doc.querySelector('.stApp')];
+            for (var i = 0; i < cands.length; i++) {{
+                if (!cands[i]) continue;
+                var bg = window.parent.getComputedStyle(cands[i]).backgroundColor;
+                var m = bg && bg.match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)(?:[,\\s]+([\\d.]+))?\\)/);
+                if (m) {{
+                    var alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+                    if (alpha > 0) {{
+                        var lum = 0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3];
+                        dark = lum < 128;
+                        break;
+                    }}
+                }}
+            }}
+        }} catch (e) {{}}
+        if (dark) {{
+            link.style.color = '#FAFAFA';
+            link.style.borderColor = 'rgba(250, 250, 250, 0.2)';
+        }} else {{
+            link.style.color = '#31333F';
+            link.style.borderColor = 'rgba(49, 51, 63, 0.2)';
+        }}
+        link.style.setProperty('--dm-bg', link.style.backgroundColor || 'transparent');
+    }}
+
     function fallbackCopy(t) {{
         var ta = document.createElement('textarea');
         ta.value = t;
@@ -194,8 +220,20 @@ body {{ margin: 0; }}
             if (done) done();
         }}
     }}
+
+    // 読み込み時に適用。親のボタンがまだ描画されていなければ少し待って再試行する
+    var tries = 0;
+    (function init() {{
+        if (applyNativeStyle() || tries++ >= 20) {{
+            if (!applyNativeStyle()) applyFallbackTheme();
+            return;
+        }}
+        setTimeout(init, 100);
+    }})();
+
     if (link) {{
         link.addEventListener('click', function () {{
+            if (!applyNativeStyle()) applyFallbackTheme();
             copyText(text, function () {{
                 link.textContent = '✓ コピーしました';
                 setTimeout(function () {{ link.textContent = original; }}, 2000);

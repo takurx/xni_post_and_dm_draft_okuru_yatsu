@@ -44,3 +44,8 @@ https://x.com/messages/compose?recipient_id=100786821&text=(%E6%97%A9%E4%B9%99%E
 ## question 1
 DM送信ボタンの色が変わったのはなぜ？
 
+## draft sprint 5
+question1_detail.pngの通り、dm送信ボタンが透過になっている。Post送信ボタンと同じ表示にしたい
+
+
+
