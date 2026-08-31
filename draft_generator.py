@@ -90,12 +90,51 @@ def _js_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
 
 
-def build_dm_button_html(label: str, url: str, copy_text: str) -> str:
+# Streamlit標準テーマのボタン文字色(デフォルト。カスタムテーマ設定が無い場合のフォールバック)
+DEFAULT_THEME_TEXT_COLORS = {"light": "#31333F", "dark": "#FAFAFA"}
+
+
+def _hex_to_rgba(color: str, alpha: float) -> str:
+    """``#RRGGBB`` 形式の色を ``rgba(r, g, b, alpha)`` に変換する。
+
+    解析できない場合は元の文字列をそのまま返す。
+    """
+    c = str(color).strip().lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    if len(c) != 6:
+        return str(color)
+    try:
+        r, g, b = (int(c[i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return str(color)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
+def build_dm_button_html(
+    label: str,
+    url: str,
+    copy_text: str,
+    *,
+    base: str = "light",
+    text_color: str | None = None,
+) -> str:
     """DM送信ボタンのHTMLを生成する。
 
     クリックすると ``copy_text`` をクリップボードにコピーし、
     同時に ``url``(DM作成画面)を新しいタブで開く。
+
+    ボタンの配色は Streamlit のネイティブボタン(secondary)に合わせて
+    テーマの文字色から算出する。
     """
+    if base not in DEFAULT_THEME_TEXT_COLORS:
+        base = "light"
+    text_color = (text_color or "").strip() or DEFAULT_THEME_TEXT_COLORS[base]
+    border_color = _hex_to_rgba(text_color, 0.2)
+    hover_bg = _hex_to_rgba(text_color, 0.06)
+    hover_border = _hex_to_rgba(text_color, 0.4)
+    active_bg = _hex_to_rgba(text_color, 0.12)
+
     label_escaped = html.escape(label)
     href = html.escape(url, quote=True)
     text_literal = _js_string(copy_text)
@@ -108,17 +147,23 @@ body {{ margin: 0; }}
     justify-content: center;
     height: 2.5rem;
     padding: 0 0.9rem;
-    border: 1px solid rgba(49, 51, 63, 0.2);
+    border: 1px solid {border_color};
     border-radius: 0.5rem;
-    background-color: rgba(151, 166, 195, 0.15);
-    color: inherit;
+    background-color: transparent;
+    color: {text_color};
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     box-sizing: border-box;
 }}
-.st-dm-btn:hover {{ border-color: rgb(49, 51, 63); }}
+.st-dm-btn:hover {{
+    background-color: {hover_bg};
+    border-color: {hover_border};
+}}
+.st-dm-btn:active {{
+    background-color: {active_bg};
+}}
 </style>
 <a class="st-dm-btn" href="{href}" target="_blank" rel="noopener noreferrer" id="st-dm-link">{label_escaped}</a>
 <script>

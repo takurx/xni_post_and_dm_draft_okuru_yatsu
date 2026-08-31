@@ -195,6 +195,38 @@ class DmButtonHtmlTest(unittest.TestCase):
         self.assertIn("execCommand('copy')", out)
         self.assertIn("✓ コピーしました", out)
 
+    def test_ライトテーマの配色(self):
+        out = build_dm_button_html("DM", "https://x.com/messages/compose?recipient_id=1", "t")
+        # Streamlit標準ライトテーマの文字色 #31333F に合わせる
+        self.assertIn("color: #31333F", out)
+        self.assertIn("border: 1px solid rgba(49, 51, 63, 0.2)", out)
+        # ネイティブのsecondaryボタン同様、デフォルト背景は透明
+        self.assertIn("background-color: transparent;", out)
+
+    def test_ダークテーマの配色(self):
+        out = build_dm_button_html(
+            "DM", "https://x.com/messages/compose?recipient_id=1", "t", base="dark"
+        )
+        self.assertIn("color: #FAFAFA", out)
+        self.assertIn("rgba(250, 250, 250, 0.2)", out)
+
+    def test_カスタム文字色(self):
+        out = build_dm_button_html(
+            "DM",
+            "https://x.com/messages/compose?recipient_id=1",
+            "t",
+            base="dark",
+            text_color="#123456",
+        )
+        self.assertIn("color: #123456", out)
+        self.assertIn("rgba(18, 52, 86, 0.2)", out)
+
+    def test_不明なbaseはライト扱い(self):
+        out = build_dm_button_html(
+            "DM", "https://x.com/messages/compose?recipient_id=1", "t", base="unknown"
+        )
+        self.assertIn("color: #31333F", out)
+
     def test_scriptタグを壊さない(self):
         out = build_dm_button_html(
             "DM",

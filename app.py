@@ -21,9 +21,19 @@ from draft_generator import (
 
 TEMPLATE_PATH = Path(__file__).parent / "template.yaml"
 
-st.set_page_config(page_title="X Post/DM 送信", page_icon="🐦")
 
-st.title("X Post / DM 送信")
+def _theme_option(key: str) -> str | None:
+    """Streamlitのテーマ設定値を取得する(未設定ならNone)。"""
+    try:
+        value = st.get_option(f"theme.{key}")
+    except Exception:
+        return None
+    return str(value) if value else None
+
+
+st.set_page_config(page_title="XのPost/DMに早乙女あずきさんのElysiumを投票するDraftを送るやつ v0.5", page_icon="🐦")
+
+st.title("XのPost/DMに早乙女あずきさんのElysiumを投票するDraftを送るやつ v0.5")
 st.caption(f"設定ファイル: `{TEMPLATE_PATH.name}`")
 
 try:
@@ -35,6 +45,10 @@ except (FileNotFoundError, ValueError) as e:
 template = config["template"]
 dm_address = config["dm_address"]
 dm_address_id = config["dm_address_id"]
+
+# DMボタンをアプリのテーマ色に合わせる(未設定ならライトテーマのデフォルト)
+theme_base = _theme_option("base") or "light"
+theme_text_color = _theme_option("textColor")
 
 st.caption(f"DM送信先: @{dm_address_id} (User ID: {dm_address})")
 
@@ -72,7 +86,13 @@ with col1:
     st.link_button("📨 Post送信", post_url)
 with col2:
     st.iframe(
-        build_dm_button_html("✉️ DM送信", dm_url, text),
+        build_dm_button_html(
+            "✉️ DM送信",
+            dm_url,
+            text,
+            base=theme_base,
+            text_color=theme_text_color,
+        ),
         width="content",
         height=50,
     )
@@ -84,8 +104,8 @@ st.caption(
 )
 
 st.subheader("生成URL")
-st.text_input("Post URL", value=post_url, disabled=True)
-st.text_input("DM URL", value=dm_url, disabled=True)
+st.text_input("Post URL", value=post_url, disabled=False)
+st.text_input("DM URL", value=dm_url, disabled=False)
 
-with st.expander("テンプレート (template.yaml)"):
-    st.code(template)
+# with st.expander("テンプレート (template.yaml)"):
+#     st.code(template)

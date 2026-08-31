@@ -41,5 +41,6 @@ https://x.com/messages/compose?recipient_id=100786821&text=(%E6%97%A9%E4%B9%99%E
 - template.yamlのdm_address_idはアカウント名を事前に指定する (例: mc1242)
 - template.yamlのdm_addressは実際のIDを確認して保存する
 
-
+## question 1
+DM送信ボタンの色が変わったのはなぜ？
 
