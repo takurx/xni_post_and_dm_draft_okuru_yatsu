@@ -21,10 +21,10 @@ from draft_generator import (
 
 TEMPLATE_PATH = Path(__file__).parent / "template.yaml"
 
-st.set_page_config(page_title="XのPost/DMに早乙女あずきさんのElysiumを投票するDraftを送るやつ v0.5", page_icon="🐦")
+st.set_page_config(page_title="早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.6", page_icon="🏴")
 
-st.title("XのPost/DMに早乙女あずきさんのElysiumを投票するDraftを送るやつ v0.5")
-st.caption(f"設定ファイル: `{TEMPLATE_PATH.name}`")
+st.title("早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.6")
+#st.caption(f"設定ファイル: `{TEMPLATE_PATH.name}`")
 
 try:
     config = load_config(TEMPLATE_PATH)
