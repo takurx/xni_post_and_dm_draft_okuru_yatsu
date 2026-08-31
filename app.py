@@ -21,10 +21,21 @@ from draft_generator import (
 
 TEMPLATE_PATH = Path(__file__).parent / "template.yaml"
 
-st.set_page_config(page_title="早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.6", page_icon="🏴")
+st.set_page_config(page_title="早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.7", page_icon="🏴")
 
-st.title("早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.6")
+st.title("早乙女あずきさんのElysiumをミューコミVRの長イントロ編に投票するXのPost/DMのDraftを作るやつ v0.7")
 #st.caption(f"設定ファイル: `{TEMPLATE_PATH.name}`")
+st.markdown(
+    """
+    **ミューコミVRの長イントロ編** の投票期間：～2026/09/22 23:59 JST
+    
+    - 1日1回までXのPostと@mc1242へのDMでの投票ができます  
+    - アーティスト名と曲名とハッシュタグのテンプレートがあります  
+    - 投票理由や応援コメントなど感想が付けられます
+    
+    投票ルール詳細：[https://x.com/mc1242/status/2094084197917093989](https://x.com/mc1242/status/2094084197917093989)
+    """
+)
 
 try:
     config = load_config(TEMPLATE_PATH)
@@ -79,6 +90,8 @@ with col2:
 
 st.caption(
     "**Post送信**: Xの投稿作成画面を新しいタブで開きます。"
+)
+st.caption(
     "**DM送信**: 生成テキストをクリップボードにコピーしてから、XのDM作成画面(新しいタブ)を開きます。"
     "DMは送信前に貼り付けて内容を必ず確認してください。"
 )
