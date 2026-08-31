@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from draft_generator import (
+    build_dm_button_html,
     build_dm_url,
     build_post_url,
     build_text,
@@ -27,7 +28,8 @@ TEMPLATE = (
 class ConfigTest(unittest.TestCase):
     def test_load_config_実ファイル(self):
         config = load_config("template.yaml")
-        self.assertEqual(config["dm_address_id"], "100786821")
+        self.assertEqual(config["dm_address"], "100786821")
+        self.assertEqual(config["dm_address_id"], "mc1242")
         self.assertIn("(早乙女あずき)さんの『Elysium』に投票します！", config["template"])
         self.assertIn("ここ感想 YYYY/MM/DD", config["template"])
         self.assertIn("#ミューコミＶＲ #VTuber楽曲ランキング", config["template"])
@@ -53,7 +55,9 @@ class ConfigTest(unittest.TestCase):
         with tempfile.NamedTemporaryFile(
             "w", suffix=".yaml", delete=False, encoding="utf-8"
         ) as f:
-            f.write("dm_address_id: 12345\n")
+            f.write("dm_address: 12345\n")
+            f.write("template: |\n")
+            f.write("  hello\n")
             tmp = f.name
         try:
             with self.assertRaises(ValueError):
@@ -61,17 +65,19 @@ class ConfigTest(unittest.TestCase):
         finally:
             Path(tmp).unlink(missing_ok=True)
 
-    def test_load_config_dm_address_idが数値でも文字列化(self):
+    def test_load_config_数値は文字列化(self):
         with tempfile.NamedTemporaryFile(
             "w", suffix=".yaml", delete=False, encoding="utf-8"
         ) as f:
-            f.write("dm_address_id: 999\n")
+            f.write("dm_address: 999\n")
+            f.write("dm_address_id: mc1242\n")
             f.write("template: |\n")
             f.write("  hello\n")
             tmp = f.name
         try:
             config = load_config(tmp)
-            self.assertEqual(config["dm_address_id"], "999")
+            self.assertEqual(config["dm_address"], "999")
+            self.assertEqual(config["dm_address_id"], "mc1242")
             self.assertEqual(config["template"], "hello")
         finally:
             Path(tmp).unlink(missing_ok=True)
@@ -164,6 +170,47 @@ class UrlTest(unittest.TestCase):
         params = dict(p.split("=", 1) for p in url.split("?", 1)[1].split("&"))
         self.assertEqual(params["recipient_id"], "100786821")
         self.assertEqual(unquote(params["text"]), text)
+
+    def test_dm_url_はconfigのdm_addressを使う(self):
+        config = load_config("template.yaml")
+        text = build_text(config["template"], "最高", "2026/08/31")
+        url = build_dm_url(text, config["dm_address"])
+        self.assertIn("recipient_id=100786821", url)
+        self.assertIn("mc1242", config["dm_address_id"])
+
+
+class DmButtonHtmlTest(unittest.TestCase):
+    def test_構成(self):
+        url = "https://x.com/messages/compose?recipient_id=100786821&text=abc"
+        out = build_dm_button_html("✉️ DM送信", url, "コピーする本文")
+        self.assertIn(
+            'href="https://x.com/messages/compose?recipient_id=100786821&amp;text=abc"',
+            out,
+        )
+        self.assertIn('target="_blank"', out)
+        self.assertIn('rel="noopener noreferrer"', out)
+        self.assertIn("✉️ DM送信", out)
+        self.assertIn("コピーする本文", out)
+        self.assertIn("navigator.clipboard", out)
+        self.assertIn("execCommand('copy')", out)
+        self.assertIn("✓ コピーしました", out)
+
+    def test_scriptタグを壊さない(self):
+        out = build_dm_button_html(
+            "DM",
+            "https://x.com/messages/compose?text=</script><b>x</b>",
+            "</script><b>x</b>",
+        )
+        # コピー本文の </script> が \u003c に置換され、scriptブロックが壊れないこと
+        self.assertEqual(out.count("<script>"), 1)  # 本来の開きタグのみ
+        self.assertEqual(out.count("</script>"), 1)  # 本来の閉じタグのみ
+        self.assertIn("\\u003c/script>", out)  # コピー本文側は \u003c に置換
+        self.assertIn("&lt;/script&gt;", out)  # href側はHTMLエスケープ
+
+    def test_クリックでURLが新タブで開く構成(self):
+        out = build_dm_button_html("DM", "https://x.com/messages/compose?recipient_id=1", "text")
+        self.assertIn("st-dm-link", out)
+        self.assertIn("addEventListener('click'", out)
 
 
 class DateTest(unittest.TestCase):

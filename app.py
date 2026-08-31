@@ -2,7 +2,8 @@
 
 template.yaml を読み込み、感想テキストボックスの内容と今日の日付で
 プレースホルダを置換したテキストを生成する。
-ボタンを押すとXの投稿作成画面 / DM作成画面を新しいタブで開く。
+- Post送信ボタン: Xの投稿作成画面を新しいタブで開く
+- DM送信ボタン: 生成テキストをクリップボードにコピーしてからXのDM作成画面を開く
 """
 
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 import streamlit as st
 
 from draft_generator import (
+    build_dm_button_html,
     build_dm_url,
     build_post_url,
     build_text,
@@ -31,7 +33,10 @@ except (FileNotFoundError, ValueError) as e:
     st.stop()
 
 template = config["template"]
+dm_address = config["dm_address"]
 dm_address_id = config["dm_address_id"]
+
+st.caption(f"DM送信先: @{dm_address_id} (User ID: {dm_address})")
 
 # ---------- メイン ----------
 impression = st.text_area(
@@ -60,17 +65,22 @@ else:
     st.caption(f"文字数: {char_count} / 280")
 
 post_url = build_post_url(text)
-dm_url = build_dm_url(text, dm_address_id)
+dm_url = build_dm_url(text, dm_address)
 
 col1, col2 = st.columns(2)
 with col1:
     st.link_button("📨 Post送信", post_url)
 with col2:
-    st.link_button("✉️ DM送信", dm_url)
+    st.iframe(
+        build_dm_button_html("✉️ DM送信", dm_url, text),
+        width="content",
+        height=50,
+    )
 
 st.caption(
-    "ボタンを押すと、Xの投稿作成 / DM作成画面が新しいタブで開き、テキストが入力済みの状態になります。"
-    "その画面で確認して送信（または下書き保存）してください。"
+    "**Post送信**: Xの投稿作成画面を新しいタブで開きます。"
+    "**DM送信**: 生成テキストをクリップボードにコピーしてから、XのDM作成画面(新しいタブ)を開きます。"
+    "DMは送信前に貼り付けて内容を必ず確認してください。"
 )
 
 st.subheader("生成URL")

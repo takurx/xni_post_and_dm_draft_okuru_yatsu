@@ -36,5 +36,10 @@ https://x.com/messages/compose?recipient_id=100786821&text=(%E6%97%A9%E4%B9%99%E
   - 投稿内容のテンプレートはtemplate.yamlのtemplate以下になる
 - 生成したURLも表示するは常に表示する
 
+## draft sprint 4
+- DM送信ボタンは、現在の内容にかつ、生成した送信内容をclipboardにコピーするようにする（DM送信のセキュリティ対策のため）
+- template.yamlのdm_address_idはアカウント名を事前に指定する (例: mc1242)
+- template.yamlのdm_addressは実際のIDを確認して保存する
+
 
 
