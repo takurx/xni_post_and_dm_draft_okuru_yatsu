@@ -3,10 +3,18 @@
 実行方法: python -m unittest test_draft_generator
 """
 
+import tempfile
 import unittest
+from pathlib import Path
 from urllib.parse import unquote
 
-from draft_generator import build_dm_url, build_post_url, build_text, today_str
+from draft_generator import (
+    build_dm_url,
+    build_post_url,
+    build_text,
+    load_config,
+    today_str,
+)
 
 TEMPLATE = (
     "(早乙女あずき)さんの『Elysium』に投票します！\n"
@@ -14,6 +22,59 @@ TEMPLATE = (
     "#ミューコミＶＲ #VTuber楽曲ランキング\n"
     "https://www.youtube.com/watch?v=01Mpk-w688s"
 )
+
+
+class ConfigTest(unittest.TestCase):
+    def test_load_config_実ファイル(self):
+        config = load_config("template.yaml")
+        self.assertEqual(config["dm_address_id"], "100786821")
+        self.assertIn("(早乙女あずき)さんの『Elysium』に投票します！", config["template"])
+        self.assertIn("ここ感想 YYYY/MM/DD", config["template"])
+        self.assertIn("#ミューコミＶＲ #VTuber楽曲ランキング", config["template"])
+        self.assertIn("https://www.youtube.com/watch?v=01Mpk-w688s", config["template"])
+
+    def test_load_config_無いファイル(self):
+        with self.assertRaises(FileNotFoundError):
+            load_config("no_such_file_please.yaml")
+
+    def test_load_config_形式不正(self):
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".yaml", delete=False, encoding="utf-8"
+        ) as f:
+            f.write("ただの文字列\n")
+            tmp = f.name
+        try:
+            with self.assertRaises(ValueError):
+                load_config(tmp)
+        finally:
+            Path(tmp).unlink(missing_ok=True)
+
+    def test_load_config_キー不足(self):
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".yaml", delete=False, encoding="utf-8"
+        ) as f:
+            f.write("dm_address_id: 12345\n")
+            tmp = f.name
+        try:
+            with self.assertRaises(ValueError):
+                load_config(tmp)
+        finally:
+            Path(tmp).unlink(missing_ok=True)
+
+    def test_load_config_dm_address_idが数値でも文字列化(self):
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".yaml", delete=False, encoding="utf-8"
+        ) as f:
+            f.write("dm_address_id: 999\n")
+            f.write("template: |\n")
+            f.write("  hello\n")
+            tmp = f.name
+        try:
+            config = load_config(tmp)
+            self.assertEqual(config["dm_address_id"], "999")
+            self.assertEqual(config["template"], "hello")
+        finally:
+            Path(tmp).unlink(missing_ok=True)
 
 
 class BuildTextTest(unittest.TestCase):

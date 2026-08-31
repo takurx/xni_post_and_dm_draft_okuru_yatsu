@@ -13,33 +13,25 @@ from draft_generator import (
     build_dm_url,
     build_post_url,
     build_text,
-    load_template,
+    load_config,
     today_str,
 )
 
 TEMPLATE_PATH = Path(__file__).parent / "template.yaml"
-DEFAULT_DM_RECIPIENT_ID = "100786821"  # ミューコミVR @mc1242 のUser ID
 
 st.set_page_config(page_title="X Post/DM 送信", page_icon="🐦")
 
 st.title("X Post / DM 送信")
-st.caption(f"テンプレート: `{TEMPLATE_PATH.name}`")
+st.caption(f"設定ファイル: `{TEMPLATE_PATH.name}`")
 
 try:
-    template = load_template(TEMPLATE_PATH)
-except FileNotFoundError as e:
+    config = load_config(TEMPLATE_PATH)
+except (FileNotFoundError, ValueError) as e:
     st.error(e)
     st.stop()
 
-# ---------- サイドバー ----------
-with st.sidebar:
-    st.header("設定")
-    recipient_id = st.text_input(
-        "DM送信先 User ID",
-        value=DEFAULT_DM_RECIPIENT_ID,
-        help="XのDM作成画面を開く相手のUser ID(ミューコミVRは 100786821)",
-    )
-    show_urls = st.checkbox("生成したURLも表示する", value=False)
+template = config["template"]
+dm_address_id = config["dm_address_id"]
 
 # ---------- メイン ----------
 impression = st.text_area(
@@ -68,7 +60,7 @@ else:
     st.caption(f"文字数: {char_count} / 280")
 
 post_url = build_post_url(text)
-dm_url = build_dm_url(text, recipient_id)
+dm_url = build_dm_url(text, dm_address_id)
 
 col1, col2 = st.columns(2)
 with col1:
@@ -81,10 +73,9 @@ st.caption(
     "その画面で確認して送信（または下書き保存）してください。"
 )
 
-if show_urls:
-    st.subheader("生成URL")
-    st.text_input("Post URL", value=post_url, disabled=True)
-    st.text_input("DM URL", value=dm_url, disabled=True)
+st.subheader("生成URL")
+st.text_input("Post URL", value=post_url, disabled=True)
+st.text_input("DM URL", value=dm_url, disabled=True)
 
 with st.expander("テンプレート (template.yaml)"):
     st.code(template)

@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
+import yaml
 from zoneinfo import ZoneInfo
 
 TIMEZONE = "Asia/Tokyo"
@@ -25,15 +26,29 @@ def today_str() -> str:
     return now.strftime("%Y/%m/%d")
 
 
-def load_template(path: str | Path) -> str:
-    """テンプレートファイルを文字列として読み込む。
+def load_config(path: str | Path) -> dict:
+    """template.yaml を読み込んで設定dictを返す。
 
-    先頭・末尾の空白行は除去する。ファイルが無ければ FileNotFoundError。
+    キー:
+    - ``dm_address_id``: DM送信先のUser ID
+    - ``template``: 投稿テンプレート(プレースホルダ: ここ感想 / YYYY/MM/DD)
+
+    ファイルが無ければ FileNotFoundError、形式が不正なら ValueError。
     """
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"テンプレートファイルが見つかりません: {p}")
-    return p.read_text(encoding="utf-8").strip()
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("template.yaml の形式が正しくありません(dictが必要)")
+    if "dm_address_id" not in data:
+        raise ValueError("template.yaml に dm_address_id がありません")
+    if "template" not in data:
+        raise ValueError("template.yaml に template がありません")
+    return {
+        "dm_address_id": str(data["dm_address_id"]).strip(),
+        "template": str(data["template"]).strip(),
+    }
 
 
 def build_text(template: str, impression: str, date: str) -> str:
