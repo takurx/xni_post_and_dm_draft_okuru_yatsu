@@ -1,0 +1,2 @@
+# xni_post_and_dm_draft_okuru_yatsu
+Xにpostとdmのdraftを送るやつ、python, streamlitで
