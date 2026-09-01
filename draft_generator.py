@@ -98,148 +98,242 @@ def _js_string(value: str) -> str:
 def build_dm_button_html(label: str, url: str, copy_text: str) -> str:
     """DM送信ボタンのHTMLを生成する。
 
-    クリックすると ``copy_text`` をクリップボードにコピーし、
-    同時に ``url``(DM作成画面)を新しいタブで開く。
+    クリック時に:
+    - copy_text をクリップボードへコピー
+    - url のDM作成画面を新しいタブで開く
 
-    配色は同じページ内にあるネイティブのPost送信ボタン(``st.link_button``)の
-    計算済みスタイルをそのままコピーするため、Streamlitのテーマ
-    (ライト/ダーク/カスタム)に完全に追従する。
+    見た目は可能なら親ページの st.link_button を参照し、
+    Streamlit標準ボタンの計算済みスタイルをコピーする。
+    取得できない場合は親ページの背景色からライト/ダークを判定して
+    フォールバック配色を適用する。
     """
     label_escaped = html.escape(label)
     href = html.escape(url, quote=True)
     text_literal = _js_string(copy_text)
-    return f"""\
+
+    return f"""
 <style>
-body {{ margin: 0; }}
+body {{
+    margin: 0;
+}}
+
 .st-dm-btn {{
     display: inline-flex;
     align-items: center;
     justify-content: center;
+
     height: 2.5rem;
     padding: 0 0.9rem;
-    border: 1px solid rgba(49, 51, 63, 0.2);
+
+    border: 1px solid rgba(250, 250, 250, 0.2);
     border-radius: 0.5rem;
-    background-color: transparent;
-    color: #31333F;
+
+    background: transparent;
+    color: #FAFAFA;
+
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
+
     cursor: pointer;
     box-sizing: border-box;
 }}
+
 .st-dm-btn:hover {{
-    background-color: color-mix(in srgb, black 15%, var(--dm-bg, transparent));
+    filter: brightness(0.9);
 }}
+
 .st-dm-btn:active {{
-    background-color: color-mix(in srgb, black 25%, var(--dm-bg, transparent));
+    filter: brightness(0.8);
 }}
 </style>
-<a class="st-dm-btn" href="{href}" target="_blank" rel="noopener noreferrer" id="st-dm-link">{label_escaped}</a>
-<script>
-(function () {{
-    var link = document.getElementById('st-dm-link');
-    var text = {text_literal};
-    var original = link ? link.textContent : '';
 
-    // 親ページのPost送信ボタン(ネイティブ st.link_button)の計算済みスタイルをコピーする
-    function applyNativeStyle() {{
-        if (!link) return false;
+<a
+    id="st-dm-link"
+    class="st-dm-btn"
+    href="{href}"
+    target="_blank"
+    rel="noopener noreferrer"
+>
+    {label_escaped}
+</a>
+
+<script>
+(() => {{
+    const link = document.getElementById("st-dm-link");
+    if (!link) return;
+
+    const copyTextValue = {text_literal};
+    const originalLabel = link.textContent;
+
+    const nativeStyleProps = [
+        "color",
+        "background-color",
+        "border-color",
+        "border-width",
+        "border-style",
+        "border-radius",
+        "font-family",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "height",
+        "padding",
+        "box-shadow"
+    ];
+
+    function findNativePostButton() {{
         try {{
-            var doc = window.parent.document;
-            var post = doc.querySelector('a[data-testid^="stBaseLinkButton"]')
-                    || doc.querySelector('[data-testid="stLinkButton"] a');
-            if (!post) return false;
-            var cs = window.parent.getComputedStyle(post);
-            var props = [
-                'color', 'backgroundColor', 'borderColor', 'borderWidth', 'borderStyle',
-                'borderRadius', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
-                'height', 'padding', 'boxShadow'
-            ];
-            for (var i = 0; i < props.length; i++) {{
-                var v = cs.getPropertyValue(props[i]);
-                if (v) link.style[props[i]] = v;
+            const doc = window.parent.document;
+
+            return (
+                doc.querySelector('a[data-testid^="stBaseLinkButton"]') ||
+                doc.querySelector('[data-testid="stLinkButton"] a')
+            );
+        }} catch {{
+            return null;
+        }}
+    }}
+
+    function applyNativeStyle() {{
+        const nativeButton = findNativePostButton();
+        if (!nativeButton) return false;
+
+        try {{
+            const cs = window.parent.getComputedStyle(nativeButton);
+
+            for (const prop of nativeStyleProps) {{
+                const value = cs.getPropertyValue(prop);
+                if (value) {{
+                    link.style.setProperty(prop, value);
+                }}
             }}
-            link.style.setProperty('--dm-bg', cs.getPropertyValue('backgroundColor') || 'transparent');
+
             return true;
-        }} catch (e) {{
+        }} catch {{
             return false;
         }}
     }}
 
-    // フォールバック: 親ページの背景色の明るさからライト/ダークを判定して配色する
-    function applyFallbackTheme() {{
-        if (!link) return;
-        var dark = false;
+    function getParentBackgroundColor() {{
         try {{
-            var doc = window.parent.document;
-            var cands = [doc.documentElement, doc.body, doc.querySelector('.stApp')];
-            for (var i = 0; i < cands.length; i++) {{
-                if (!cands[i]) continue;
-                var bg = window.parent.getComputedStyle(cands[i]).backgroundColor;
-                var m = bg && bg.match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)(?:[,\\s]+([\\d.]+))?\\)/);
-                if (m) {{
-                    var alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
-                    if (alpha > 0) {{
-                        var lum = 0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3];
-                        dark = lum < 128;
-                        break;
-                    }}
+            const doc = window.parent.document;
+            const candidates = [
+                doc.querySelector(".stApp"),
+                doc.body,
+                doc.documentElement
+            ];
+
+            for (const el of candidates) {{
+                if (!el) continue;
+
+                const bg = window.parent.getComputedStyle(el).backgroundColor;
+                if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {{
+                    return bg;
                 }}
             }}
-        }} catch (e) {{}}
+        }} catch {{}}
+
+        return null;
+    }}
+
+    function isDarkColor(rgb) {{
+        if (!rgb) return true;
+
+        const match = rgb.match(
+            /rgba?\\(\\s*(\\d+)\\D+(\\d+)\\D+(\\d+)/
+        );
+
+        if (!match) return true;
+
+        const r = Number(match[1]);
+        const g = Number(match[2]);
+        const b = Number(match[3]);
+
+        const luminance =
+            0.299 * r +
+            0.587 * g +
+            0.114 * b;
+
+        return luminance < 128;
+    }}
+
+    function applyFallbackTheme() {{
+        const dark = isDarkColor(getParentBackgroundColor());
+
         if (dark) {{
-            link.style.color = '#FAFAFA';
-            link.style.borderColor = 'rgba(250, 250, 250, 0.2)';
+            link.style.color = "#FAFAFA";
+            link.style.borderColor = "rgba(250, 250, 250, 0.2)";
         }} else {{
-            link.style.color = '#31333F';
-            link.style.borderColor = 'rgba(49, 51, 63, 0.2)';
+            link.style.color = "#31333F";
+            link.style.borderColor = "rgba(49, 51, 63, 0.2)";
         }}
-        link.style.setProperty('--dm-bg', link.style.backgroundColor || 'transparent');
+
+        link.style.backgroundColor = "transparent";
     }}
 
-    function fallbackCopy(t) {{
-        var ta = document.createElement('textarea');
-        ta.value = t;
-        ta.style.position = 'fixed';
-        ta.style.top = '-1000px';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        try {{ document.execCommand('copy'); }} catch (e) {{}}
-        document.body.removeChild(ta);
+    function syncStyle() {{
+        if (!applyNativeStyle()) {{
+            applyFallbackTheme();
+        }}
     }}
-    function copyText(t, done) {{
-        if (navigator.clipboard && window.isSecureContext) {{
-            navigator.clipboard.writeText(t).then(
-                function () {{ if (done) done(); }},
-                function () {{ fallbackCopy(t); if (done) done(); }}
-            );
+
+    function fallbackCopy(text) {{
+        const textarea = document.createElement("textarea");
+
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.opacity = "0";
+
+        document.body.appendChild(textarea);
+
+        textarea.focus();
+        textarea.select();
+
+        try {{
+            document.execCommand("copy");
+        }} catch {{}}
+
+        textarea.remove();
+    }}
+
+    async function copyToClipboard(text) {{
+        try {{
+            if (navigator.clipboard && window.isSecureContext) {{
+                await navigator.clipboard.writeText(text);
+                return;
+            }}
+        }} catch {{}}
+
+        fallbackCopy(text);
+    }}
+
+    async function handleClick() {{
+        syncStyle();
+
+        await copyToClipboard(copyTextValue);
+
+        link.textContent = "✓ コピーしました";
+
+        setTimeout(() => {{
+            link.textContent = originalLabel;
+        }}, 2000);
+    }}
+
+    function initStyle(retry = 0) {{
+        if (applyNativeStyle()) return;
+
+        if (retry < 20) {{
+            setTimeout(() => initStyle(retry + 1), 100);
         }} else {{
-            fallbackCopy(t);
-            if (done) done();
+            applyFallbackTheme();
         }}
     }}
 
-    // 読み込み時に適用。親のボタンがまだ描画されていなければ少し待って再試行する
-    var tries = 0;
-    (function init() {{
-        if (applyNativeStyle() || tries++ >= 20) {{
-            if (!applyNativeStyle()) applyFallbackTheme();
-            return;
-        }}
-        setTimeout(init, 100);
-    }})();
+    initStyle();
 
-    if (link) {{
-        link.addEventListener('click', function () {{
-            if (!applyNativeStyle()) applyFallbackTheme();
-            copyText(text, function () {{
-                link.textContent = '✓ コピーしました';
-                setTimeout(function () {{ link.textContent = original; }}, 2000);
-            }});
-        }});
-    }}
+    link.addEventListener("click", handleClick);
 }})();
 </script>
 """
