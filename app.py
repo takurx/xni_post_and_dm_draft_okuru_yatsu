@@ -36,7 +36,7 @@ st.markdown(
     投票ルール詳細：[https://x.com/mc1242/status/2094084197917093989](https://x.com/mc1242/status/2094084197917093989)
     """
 )
-
+st.markdown("🎧 [ElysiumをYouTubeで聴く](https://www.youtube.com/watch?v=01Mpk-w688s)")
 
 try:
     config = load_config(TEMPLATE_PATH)
@@ -97,12 +97,12 @@ st.caption(
     "DMは送信前に貼り付けて内容を必ず確認してください。"
 )
 
+st.subheader("Elysiumの紹介動画")
+st.video("https://www.youtube.com/watch?v=01Mpk-w688s")
+
 st.subheader("生成URL")
 st.text_input("Post URL", value=post_url, disabled=False)
 st.text_input("DM URL", value=dm_url, disabled=False)
 
 # with st.expander("テンプレート (template.yaml)"):
 #     st.code(template)
-
-st.subheader("Elysiumの紹介動画")
-st.video("https://www.youtube.com/watch?v=01Mpk-w688s")
