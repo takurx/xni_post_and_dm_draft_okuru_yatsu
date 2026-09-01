@@ -102,10 +102,8 @@ def build_dm_button_html(label: str, url: str, copy_text: str) -> str:
     - copy_text をクリップボードへコピー
     - url のDM作成画面を新しいタブで開く
 
-    見た目は可能なら親ページの st.link_button を参照し、
-    Streamlit標準ボタンの計算済みスタイルをコピーする。
-    取得できない場合は親ページの背景色からライト/ダークを判定して
-    フォールバック配色を適用する。
+    見た目は可能なら親ページの st.link_button の計算済みスタイルをコピー。
+    取得できない場合は親ページの背景色からライト/ダークを判定する。
     """
     label_escaped = html.escape(label)
     href = html.escape(url, quote=True)
@@ -113,8 +111,10 @@ def build_dm_button_html(label: str, url: str, copy_text: str) -> str:
 
     return f"""
 <style>
-body {{
+html, body {{
     margin: 0;
+    padding: 0;
+    background: transparent;
 }}
 
 .st-dm-btn {{
@@ -125,26 +125,32 @@ body {{
     height: 2.5rem;
     padding: 0 0.9rem;
 
-    border: 1px solid rgba(250, 250, 250, 0.2);
+    border: 1px solid rgba(49, 51, 63, 0.2);
     border-radius: 0.5rem;
 
-    background: transparent;
-    color: #FAFAFA;
+    background-color: transparent;
+    color: #31333F;
 
+    font-family: sans-serif;
     font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
+    font-weight: 400;
+    line-height: normal;
 
+    text-decoration: none;
     cursor: pointer;
     box-sizing: border-box;
+
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
 }}
 
 .st-dm-btn:hover {{
-    filter: brightness(0.9);
+    background-color: rgba(128, 128, 128, 0.08);
 }}
 
 .st-dm-btn:active {{
-    filter: brightness(0.8);
+    background-color: rgba(128, 128, 128, 0.15);
 }}
 </style>
 
@@ -154,9 +160,7 @@ body {{
     href="{href}"
     target="_blank"
     rel="noopener noreferrer"
->
-    {label_escaped}
-</a>
+>{label_escaped}</a>
 
 <script>
 (() => {{
@@ -182,17 +186,22 @@ body {{
         "box-shadow"
     ];
 
-    function findNativePostButton() {{
+    function getParentDocument() {{
         try {{
-            const doc = window.parent.document;
-
-            return (
-                doc.querySelector('a[data-testid^="stBaseLinkButton"]') ||
-                doc.querySelector('[data-testid="stLinkButton"] a')
-            );
+            return window.parent.document;
         }} catch {{
             return null;
         }}
+    }}
+
+    function findNativePostButton() {{
+        const doc = getParentDocument();
+        if (!doc) return null;
+
+        return (
+            doc.querySelector('a[data-testid^="stBaseLinkButton"]') ||
+            doc.querySelector('[data-testid="stLinkButton"] a')
+        );
     }}
 
     function applyNativeStyle() {{
@@ -204,6 +213,7 @@ body {{
 
             for (const prop of nativeStyleProps) {{
                 const value = cs.getPropertyValue(prop);
+
                 if (value) {{
                     link.style.setProperty(prop, value);
                 }}
@@ -215,64 +225,70 @@ body {{
         }}
     }}
 
-    function getParentBackgroundColor() {{
-        try {{
-            const doc = window.parent.document;
-            const candidates = [
-                doc.querySelector(".stApp"),
-                doc.body,
-                doc.documentElement
-            ];
+    function parseRgb(color) {{
+        if (!color) return null;
 
-            for (const el of candidates) {{
-                if (!el) continue;
-
-                const bg = window.parent.getComputedStyle(el).backgroundColor;
-                if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {{
-                    return bg;
-                }}
-            }}
-        }} catch {{}}
-
-        return null;
-    }}
-
-    function isDarkColor(rgb) {{
-        if (!rgb) return true;
-
-        const match = rgb.match(
-            /rgba?\\(\\s*(\\d+)\\D+(\\d+)\\D+(\\d+)/
+        const m = color.match(
+            /rgba?\\(\\s*(\\d+)\\s*[, ]\\s*(\\d+)\\s*[, ]\\s*(\\d+)/
         );
 
-        if (!match) return true;
+        if (!m) return null;
 
-        const r = Number(match[1]);
-        const g = Number(match[2]);
-        const b = Number(match[3]);
+        return {{
+            r: Number(m[1]),
+            g: Number(m[2]),
+            b: Number(m[3])
+        }};
+    }}
 
-        const luminance =
-            0.299 * r +
-            0.587 * g +
-            0.114 * b;
+    function isDarkTheme() {{
+        const doc = getParentDocument();
+        if (!doc) return false;
 
-        return luminance < 128;
+        const candidates = [
+            doc.querySelector(".stApp"),
+            doc.body,
+            doc.documentElement
+        ];
+
+        for (const element of candidates) {{
+            if (!element) continue;
+
+            try {{
+                const bg = window.parent
+                    .getComputedStyle(element)
+                    .backgroundColor;
+
+                const rgb = parseRgb(bg);
+                if (!rgb) continue;
+
+                const luminance =
+                    0.299 * rgb.r +
+                    0.587 * rgb.g +
+                    0.114 * rgb.b;
+
+                return luminance < 128;
+            }} catch {{}}
+        }}
+
+        return false;
     }}
 
     function applyFallbackTheme() {{
-        const dark = isDarkColor(getParentBackgroundColor());
+        const dark = isDarkTheme();
 
         if (dark) {{
             link.style.color = "#FAFAFA";
             link.style.borderColor = "rgba(250, 250, 250, 0.2)";
+            link.style.backgroundColor = "transparent";
         }} else {{
             link.style.color = "#31333F";
             link.style.borderColor = "rgba(49, 51, 63, 0.2)";
+            link.style.backgroundColor = "transparent";
         }}
-
-        link.style.backgroundColor = "transparent";
     }}
 
-    function syncStyle() {{
+    function applyStyle() {{
         if (!applyNativeStyle()) {{
             applyFallbackTheme();
         }}
@@ -282,8 +298,10 @@ body {{
         const textarea = document.createElement("textarea");
 
         textarea.value = text;
+        textarea.setAttribute("readonly", "");
         textarea.style.position = "fixed";
         textarea.style.left = "-9999px";
+        textarea.style.top = "0";
         textarea.style.opacity = "0";
 
         document.body.appendChild(textarea);
@@ -310,7 +328,7 @@ body {{
     }}
 
     async function handleClick() {{
-        syncStyle();
+        applyStyle();
 
         await copyToClipboard(copyTextValue);
 
@@ -322,15 +340,22 @@ body {{
     }}
 
     function initStyle(retry = 0) {{
-        if (applyNativeStyle()) return;
+        if (applyNativeStyle()) {{
+            return;
+        }}
 
         if (retry < 20) {{
             setTimeout(() => initStyle(retry + 1), 100);
-        }} else {{
-            applyFallbackTheme();
+            return;
         }}
+
+        applyFallbackTheme();
     }}
 
+    // 初期表示時にも必ず一度テーマ判定しておく
+    applyFallbackTheme();
+
+    // Post送信ボタンが描画されたら、そのスタイルで上書き
     initStyle();
 
     link.addEventListener("click", handleClick);
