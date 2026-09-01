@@ -37,6 +37,7 @@ st.markdown(
     """
 )
 
+
 try:
     config = load_config(TEMPLATE_PATH)
 except (FileNotFoundError, ValueError) as e:
@@ -102,3 +103,6 @@ st.text_input("DM URL", value=dm_url, disabled=False)
 
 # with st.expander("テンプレート (template.yaml)"):
 #     st.code(template)
+
+st.subheader("Elysiumの紹介動画")
+st.video("https://www.youtube.com/watch?v=01Mpk-w688s")
